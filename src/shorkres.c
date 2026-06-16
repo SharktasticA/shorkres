@@ -147,8 +147,8 @@ void saveRes(MenuItem itm)
         end++;
 
     // Assemble the patch and result string
-    char mode[4];
-    int modeLen = snprintf(mode, 4, "%d", atoi(itm.id));
+    char mode[5];
+    int modeLen = snprintf(mode, 5, "%s", itm.id);
     size_t patchedSize = size - (end - (vgaNeedle + 4)) + modeLen;
     char *result = malloc(patchedSize + 1);
     size_t prefix = vgaNeedle + 4 - buffer;
@@ -364,7 +364,6 @@ void showVGAResMenu(void)
     MenuItem menu[] = {
         { "3840",   "80x25",    NULL,   1 },
         { "3843",   "80x28",    NULL,   1 },
-        { "3844",   "80x30",    NULL,   1 },
         { "3846",   "80x34",    NULL,   1 },
         { "3842",   "80x43",    NULL,   1 },
         { "3841",   "80x50",    NULL,   1 },

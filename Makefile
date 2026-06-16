@@ -4,6 +4,7 @@ RANLIB ?= ranlib
 STRIP ?= strip
 
 CFLAGS += -I.
+LDFLAGS += -static
 
 SRC = src/*.c
 
@@ -13,10 +14,13 @@ shorkres: $(SRC)
 
 PREFIX ?= /usr
 BINDIR = $(PREFIX)/bin
+DATDIR = $(PREFIX)/share/shorkres
 
 install: shorkres
 	install -d $(DESTDIR)$(BINDIR)
 	install -m 755 shorkres $(DESTDIR)$(BINDIR)
+
+	install -d $(DESTDIR)$(DATDIR)
 
 uninstall:
 	rm -f $(DESTDIR)$(BINDIR)/shorkres
