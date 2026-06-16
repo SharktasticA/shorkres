@@ -18,16 +18,16 @@ shorkset: $(SRC)
 
 PREFIX ?= /usr
 BINDIR = $(PREFIX)/libexec
-DATDIR = $(PREFIX)/share/shorkset
+CONFDIR = /etc
 
 install: shorkset
 	install -d $(DESTDIR)$(BINDIR)
 	install -m 755 shorkset $(DESTDIR)$(BINDIR)
-
-	install -d $(DESTDIR)$(DATDIR)
-
+	install -d $(DESTDIR)$(CONFDIR)
+	install -m 644 shorkset.conf $(DESTDIR)$(CONFDIR)
 uninstall:
 	rm -f $(DESTDIR)$(BINDIR)/shorkset
+	rm -f $(DESTDIR)$(CONFDIR)/shorkset.conf
 
 clean:
 	rm -f shorkset
