@@ -6,26 +6,30 @@ STRIP ?= strip
 CFLAGS += -I.
 LDFLAGS += -static
 
+ifdef FB
+	CFLAGS += -DFB
+endif
+
 SRC = src/*.c
 
-shorkres: $(SRC)
-	$(CC) $(CFLAGS) $(SRC) -o shorkres $(LDFLAGS)
-	$(STRIP) shorkres
+shorkset: $(SRC)
+	$(CC) $(CFLAGS) $(SRC) -o shorkset $(LDFLAGS)
+	$(STRIP) shorkset
 
 PREFIX ?= /usr
-BINDIR = $(PREFIX)/bin
-DATDIR = $(PREFIX)/share/shorkres
+BINDIR = $(PREFIX)/libexec
+DATDIR = $(PREFIX)/share/shorkset
 
-install: shorkres
+install: shorkset
 	install -d $(DESTDIR)$(BINDIR)
-	install -m 755 shorkres $(DESTDIR)$(BINDIR)
+	install -m 755 shorkset $(DESTDIR)$(BINDIR)
 
 	install -d $(DESTDIR)$(DATDIR)
 
 uninstall:
-	rm -f $(DESTDIR)$(BINDIR)/shorkres
+	rm -f $(DESTDIR)$(BINDIR)/shorkset
 
 clean:
-	rm -f shorkres
+	rm -f shorkset
 
 .PHONY: install uninstall clean

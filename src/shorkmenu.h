@@ -33,7 +33,8 @@ typedef enum
 typedef struct 
 {
     char *id;
-    char name[80];
+    char name[128];
+    char payload[1024];
     void (*action)(void);
     int visible;
 } MenuItem;

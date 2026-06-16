@@ -161,7 +161,8 @@ void printDir(struct dirent **dirContents, int entryCount, int cursor, int curso
     if (!dirContents || entryCount == 0)
     {
         printf("(empty)\n");
-        for (int i = 1; i < AVAIL_HEIGHT; i++) printf("\n");
+        for (int i = 1; i < AVAIL_HEIGHT; i++)
+            printf("\n");
         return;
     }
 
@@ -525,16 +526,23 @@ void setupMenuSys(void)
     enableRawMode();
     printf("\033[?25l");
 
-    BASE_ROW = 2;
-    if (!COL_ENABLED)
+    if (COL_ENABLED)
+    {
+        BASE_ROW = 2;
+        AVAIL_HEIGHT = TERM_SIZE.ws_row - BASE_ROW;
+    }
+    else
+    {
         BASE_ROW = 3;
-    AVAIL_HEIGHT = TERM_SIZE.ws_row - BASE_ROW - 1;
+        AVAIL_HEIGHT = TERM_SIZE.ws_row - BASE_ROW - 1;
+    }
 }
 
 void showCursor(void)
 {
     printf("\033[?25h");
-    if (COL_ENABLED) printf("\033[%sm", COL_RESET);
+    if (COL_ENABLED)
+        printf("\033[%sm", COL_RESET);
 }
 
 /**

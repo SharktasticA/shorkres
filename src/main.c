@@ -1,6 +1,6 @@
 /*
     ######################################################
-    ##             SHORK UTILITY - SHORKRES             ##
+    ##             SHORK UTILITY - SHORKSET             ##
     ######################################################
     ## A utility for changing a SHORK Operating         ##
     ## System's VGA or VESA display resolution          ##
@@ -17,7 +17,7 @@ static const char *VERSION = "0.1-wip";
 
 
 
-#include "shorkres.h"
+#include "shorkset.h"
 
 
 
