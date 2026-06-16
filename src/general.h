@@ -1,9 +1,9 @@
 /*
     ######################################################
-    ##             SHORK UTILITY - SHORKRES             ##
+    ##             SHORK UTILITY - SHORKSET             ##
     ######################################################
     ## General, utility functions to be used throughout ##
-    ## SHORKRES                                         ##
+    ## SHORKSET                                         ##
     ######################################################
     ## Licence: GNU GENERAL PUBLIC LICENSE Version 3    ##
     ######################################################
@@ -44,6 +44,7 @@ struct winsize getTerminalSize(void);
 int isFileExecutable(char*, struct dirent*);
 int isProgramInstalled(char*, int);
 int iSqrt(int);
+int natCmp(const void*, const void*);
 int procExists(const char *, const int);
 int readHexFile(const char *);
 void splitText(char*, char*[], int);

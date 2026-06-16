@@ -19,6 +19,9 @@ static const char *VERSION = "0.1-wip";
 
 #include "shorkset.h"
 
+#include <stdio.h>
+#include <string.h>
+
 
 
 int main(int argc, char *argv[])

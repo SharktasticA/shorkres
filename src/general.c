@@ -1,9 +1,9 @@
 /*
     ######################################################
-    ##             SHORK UTILITY - SHORKRES             ##
+    ##             SHORK UTILITY - SHORKSET             ##
     ######################################################
     ## General, utility functions to be used throughout ##
-    ## SHORKRES                                         ##
+    ## SHORKSET                                         ##
     ######################################################
     ## Licence: GNU GENERAL PUBLIC LICENSE Version 3    ##
     ######################################################
@@ -17,6 +17,7 @@
 #include "general.h"
 #include "shorkmenu.h"
 
+#include <ctype.h>
 #include <dirent.h>
 #include <sys/ioctl.h>
 #include <linux/limits.h>
@@ -573,6 +574,31 @@ int iSqrt(int x)
     }
 
     return result;
+}
+
+int natCmp(const void *a, const void *b)
+{
+    const char *sa = (const char *)a;
+    const char *sb = (const char *)b;
+
+    while (*sa && *sb)
+    {
+        if (isdigit((unsigned char)*sa) && isdigit((unsigned char)*sb))
+        {
+            long na = strtol(sa, (char **)&sa, 10);
+            long nb = strtol(sb, (char **)&sb, 10);
+            if (na != nb)
+                return (na > nb) - (na < nb);
+        }
+        else
+        {
+            if (*sa != *sb)
+                return (unsigned char)*sa - (unsigned char)*sb;
+            sa++;
+            sb++;
+        }
+    }
+    return (unsigned char)*sa - (unsigned char)*sb;
 }
 
 /**

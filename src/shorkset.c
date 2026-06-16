@@ -18,7 +18,9 @@
 
 #include <fcntl.h>
 #include <sys/ioctl.h>
+#include <libgen.h>
 #include <linux/limits.h>
+#include <sys/stat.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -26,15 +28,11 @@
 
 
 
-Config CONFIG =  { 3840, "white", "0;37", "default" };
-
-
-
 /**
  * Apply the selected colour to core system files
  * @param ascii Selected colour's ANSI escape code value
  */
-void applyColourFiles(char *ansi)
+void applyFontColFiles(char *ansi)
 {
     char cmd[256];
 
@@ -58,7 +56,7 @@ void applyColourFiles(char *ansi)
  * Apply the selected colour to all virtual terminals
  * @param ascii Selected colour's ANSI escape code value
  */
-void applyColourTtys(char *ansi)
+void applyFontColTtys(char *ansi)
 {
     // TODO: dynamically get number of TTYs
     // SHORK 486 always has 3 at least...
@@ -74,6 +72,17 @@ void applyColourTtys(char *ansi)
         dprintf(tty, "\033[%sm", ansi);
         close(tty);
     }
+}
+
+/**
+ * Applies the given PSF font using setfont.
+ * @param fontPath Path to PSF font
+ */
+void applyFontPSF(char *fontPath)
+{
+    char cmd[PATH_MAX + 9];
+    snprintf(cmd, sizeof(cmd), "setfont %s", fontPath);
+    system(cmd);
 }
 
 /** 
@@ -184,10 +193,49 @@ void loadConf(void)
 }
 
 /**
+ * Loads the contents of the CONFONTS_DIR directory.
+ * @return 1 if CONFONTS_DIR exists and not empty; 0 if doesn't exist or is
+ *         empty
+ */
+int loadConFonts(void)
+{
+    struct stat st;
+    if (stat(CONFONTS_DIR, &st) != 0 || !S_ISDIR(st.st_mode))
+        return 0;
+
+    DIR *dir = opendir(CONFONTS_DIR);
+    if (!dir)
+    {
+        size_t extMsgLen = 48 + strlen(CONFONTS_DIR);
+        EXIT_MSG = malloc(extMsgLen);
+        snprintf(EXIT_MSG, extMsgLen, "ERROR: could not access %s", CONFONTS_DIR);
+        exit(1);
+    }
+
+    CONFONTS_COUNT = 0;
+    struct dirent *entry;
+    while ((entry = readdir(dir)) != NULL)
+    {
+        if (entry->d_name[0] == '.')
+            continue;
+        if (CONFONTS_COUNT >= MAX_FONTS)
+            break;
+            
+        snprintf(CONFONTS[CONFONTS_COUNT], PATH_MAX, "%s/%s", CONFONTS_DIR, entry->d_name);
+        CONFONTS_COUNT++;
+    }
+    closedir(dir);
+
+    qsort(CONFONTS, CONFONTS_COUNT, PATH_MAX, natCmp);
+    return CONFONTS_COUNT > 0;
+}
+
+/**
  * Saves the selected resolution to SHORK's bootloader configuration file.
  * @param itm Selected resolution's menu item
+ * @param skipMsg Flags if the end message screen should be skipped
  */
-void saveDispRes(MenuItem itm)
+void saveDispRes(MenuItem itm, int skipMsg)
 {
     // Find and select a bootloader cfg file
     const char *cfg = NULL;
@@ -266,33 +314,79 @@ void saveDispRes(MenuItem itm)
     fclose(stream);
     free(result);
     CONFIG.dispRes = atoi(itm.id);
+    // If a VGA resolution was selected, we also have to reset the PSF font to
+    // "default" since they normally dictate their own VGA resolution
+    if (!skipMsg && CONFIG.dispRes >= 3840)
+        snprintf(CONFIG.fontPSF, sizeof(CONFIG.fontPSF), "default");
     writeConf();
 
-    char postTitle[80];
-    snprintf(postTitle, 80, "%s", itm.name);
-    char postBody[320] = "The selected display resolution has been saved. A system restart is required before the changes will take effect.";
-    formatNewLines(postBody, TERM_SIZE.ws_col, NULL, 0);
-    printGenericScreen(postTitle, postBody);
+    if (!skipMsg)
+    {
+        char msgTitle[80];
+        snprintf(msgTitle, 80, "%s", itm.name);
+        char msgBody[320] = "The selected display resolution has been saved. If you selected a VGA resolution and had selected a PSF font before, the latter setting will now be discarded as PSF fonts dictate their own VGA resolution. A system restart is required before the changes will take effect.";
+        formatNewLines(msgBody, TERM_SIZE.ws_col, NULL, 0);
+        printGenericScreen(msgTitle, msgBody);
+    }
 }
 
 /**
- * Saves the selected font colour to TODO
+ * Saves the selected font colour to shorkset.conf and applies it.
  * @param itm Selected font colour's menu item
  */
 void saveFontCol(MenuItem itm)
 {
-    applyColourFiles(itm.id);
-    applyColourTtys(itm.id);
+    applyFontColFiles(itm.id);
+    applyFontColTtys(itm.id);
 
     snprintf(CONFIG.fontColName, sizeof(CONFIG.fontColName), "%s", itm.payload);
     snprintf(CONFIG.fontColANSI, sizeof(CONFIG.fontColANSI), "%s", itm.id);
     writeConf();
 
-    char postTitle[80];
-    snprintf(postTitle, 80, "%s", itm.payload);
-    char postBody[320] = "The selected font colour has been saved and will be applied once you exit SHORKSET. If there are any other active virtual terminals (ttyX), you may need to enter \"exit\" when convenient, or restart your computer before this change will take complete effect.";
-    formatNewLines(postBody, TERM_SIZE.ws_col, NULL, 0);
-    printGenericScreen(postTitle, postBody);
+    char msgTitle[80];
+    snprintf(msgTitle, 80, "%s", itm.payload);
+    char msgBody[320] = "The selected font colour has been saved and will be applied once you exit SHORKSET. If there are any other active virtual terminals (ttyX), you may need to enter \"exit\" when convenient, or restart your computer before this change will take complete effect.";
+    formatNewLines(msgBody, TERM_SIZE.ws_col, NULL, 0);
+    printGenericScreen(msgTitle, msgBody);
+}
+
+/**
+ * Saves the selected PSF font to shorkset.conf and applies it.
+ * @param itm Selected PSF font's menu item
+ */
+void saveFontPSF(MenuItem itm)
+{   
+    if (strcmp(itm.id, "default") == 0)
+    {
+        snprintf(CONFIG.fontPSF, sizeof(CONFIG.fontPSF), "default");
+        writeConf();
+        
+        char msgTitle[80] = "default";
+        char msgBody[320] = "The PSF font will be reset to default. If a PSF font other than \"default\" was previously selected, you must restart your computer before this change will take effect.";
+        formatNewLines(msgBody, TERM_SIZE.ws_col, NULL, 0);
+        printGenericScreen(msgTitle, msgBody);
+    }
+    else
+    {
+        applyFontPSF(itm.payload);
+        setupViewport();
+
+        snprintf(CONFIG.fontPSF, sizeof(CONFIG.fontPSF), "%s", itm.payload);
+        // If VGA font, we need to reset to default since PSF fonts override VGA
+        // resolutions
+        if (CONFIG.dispRes >= 3840)
+            saveDispRes((MenuItem){ "3840", "", "", NULL, 1 }, 1);
+        // saveDispRes will call writeConf anyway, only needed if not resetting
+        // display resolution
+        else
+            writeConf();
+
+        char msgTitle[80];
+        snprintf(msgTitle, 80, "%s", itm.name);
+        char msgBody[320] = "The selected PSF font has been saved and will be applied once you exit SHORKSET. If you had selected a VGA display resolution before, that setting will now be discarded as the PSF font will dictate its own VGA resolution. VBE display resolutions are unaffected.";
+        formatNewLines(msgBody, TERM_SIZE.ws_col, NULL, 0);
+        printGenericScreen(msgTitle, msgBody);
+    }
 }
 
 /**
@@ -375,7 +469,7 @@ void showDispResMenu(void)
 
             case ENTER:
                 clearScreen();
-                saveDispRes(menu[cursor - 1]);
+                saveDispRes(menu[cursor - 1], 0);
                 // Update marked item
                 for (int i = 0; i < menuSize; i++)
                 {
@@ -529,6 +623,136 @@ void showFontColMenu(void)
     clearScreen();
 }
 
+/**
+ * Displays PSF font selection menu
+ */
+void showFontPSFMenu(void)
+{
+    MenuItem menu[MAX_FONTS + 1];
+    menu[0] = (MenuItem){ "default", "Default", "default", NULL, 1 };
+    int menuSize = 1;
+    
+    for(int i = 0; i < CONFONTS_COUNT; i++)
+    {
+        char *base = basename(CONFONTS[i]);
+
+        // Strip extension
+        char nameStr[129];
+        strncpy(nameStr, base, 128);
+        nameStr[128] = '\0';
+        char *dot = strrchr(nameStr, '.');
+        if (dot)
+            *dot = '\0';
+
+        // Trim to 100 chars and add "..." if needed
+        if (strlen(nameStr) > 100)
+        {
+            nameStr[100] = '\0';
+            strcat(nameStr, "...");
+        }
+
+        // Add font
+        snprintf(menu[menuSize].id, sizeof(menu[menuSize].id), "%s", nameStr);
+        snprintf(menu[menuSize].name, sizeof(menu[menuSize].name), "%s", nameStr);
+        snprintf(menu[menuSize].payload, sizeof(menu[menuSize].payload), "%s", CONFONTS[i]);
+        menu[menuSize].action = NULL;
+        menu[menuSize].visible = 1;
+        menuSize++;
+    }
+
+    int running = 1;
+    int cursor = 1;
+    int cursorPrev = 0;
+    int fullRedraw = 1;
+
+    // Mark the current colour
+    for (int i = 0; i < menuSize; i++)
+    {
+        if (strcmp(menu[i].payload, CONFIG.fontPSF) == 0)
+        {
+            strcat(menu[i].name, "*");
+            cursor = i + 1;
+            break;
+        }
+    }
+
+    while (running)
+    {
+        if (fullRedraw)
+        {
+            clearScreen();
+            printHeader(CONFIG.fontPSF);
+            printMenu(menu, menuSize, 1, TERM_SIZE.ws_col - 6, menuSize, 1, cursor, 1, cursorPrev);
+            printFooter("[jk] Navigate [Enter] Select [q] Back");
+        }
+        else
+        {
+            if (COL_ENABLED)
+                printf("\x1b[2;1H");
+            else
+                printf("\x1b[3;1H");
+            printMenu(menu, menuSize, 1, TERM_SIZE.ws_col - 6, menuSize, 1, cursor, 1, cursorPrev);
+        }
+
+        NavInput input = getNavInput();
+
+        fullRedraw = 1;
+        cursorPrev = 0;
+        switch (input)
+        {
+            case CURSOR_UP:
+                cursorPrev = cursor;
+                cursor--;
+                if (cursor < 1) cursor = menuSize;
+                fullRedraw = 0;
+                break;
+
+            case CURSOR_DOWN:
+                cursorPrev = cursor;
+                cursor++;
+                if (cursor > menuSize) cursor = 1;
+                fullRedraw = 0;
+                break;
+
+            case ENTER:
+                clearScreen();
+                saveFontPSF(menu[cursor - 1]);
+                // Update marked item
+                for (int i = 0; i < menuSize; i++)
+                {
+                    size_t len = strlen(menu[i].name);
+                    if (strcmp(menu[i].payload, CONFIG.fontPSF) == 0)
+                    {
+                        // Add "*" only if not already present
+                        if (len == 0 || menu[i].name[len - 1] != '*')
+                        {
+                            strcat(menu[i].name, "*");
+                            cursor = i + 1;
+                        }
+                    }
+                    else
+                    {
+                        // Remove trailing "*" if present
+                        if (len > 0 && menu[i].name[len - 1] == '*')
+                            menu[i].name[len - 1] = '\0';
+                    }
+                }
+                fullRedraw = 1;
+                break;
+        
+            case QUIT:
+                running = 0;
+                break;
+
+            case INVALID:
+                fullRedraw = 0;
+                break;
+        }
+    }
+
+    clearScreen();
+}
+
 void showHelp(void)
 {
     TERM_SIZE = getTerminalSize();
@@ -559,8 +783,8 @@ void showMainMenu(void)
 
     if (TERM_SIZE.ws_col < 40 || TERM_SIZE.ws_row < 10)
     {
-        printf("ERROR: terminal size too small (must be 40x10 or larger)\n");
-        return;
+        EXIT_MSG = "ERROR: terminal size too small (must be 40x10 or larger)\n";
+        exit(1);
     }
 
     loadConf();
@@ -569,8 +793,9 @@ void showMainMenu(void)
     getCurrRes();
 
     MenuItem rawMenu[] = {
-        { "res",    "Display resolution",   "", showDispResMenu,    1 },
-        { "col",    "Font colour",          "", showFontColMenu,    1 }
+        { "res",    "Display resolution",   "", showDispResMenu,    1               },
+        { "psf",    "Font (PSF)",           "", showFontPSFMenu,    loadConFonts()  },
+        { "col",    "Font colour",          "", showFontColMenu,    1               }
     };
     int rawMenuSize = sizeof(rawMenu) / sizeof(rawMenu[0]);
 
@@ -629,7 +854,7 @@ void showMainMenu(void)
                 menu[cursor - 1].action();
                 fullRedraw = 1;
                 break;
-        
+
             case QUIT:
                 running = 0;
                 break;

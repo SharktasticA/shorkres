@@ -517,15 +517,18 @@ int rowsInCol(int menuSize, int rows, int col)
 
 void setupMenuSys(void)
 {
-    TERM_SIZE = getTerminalSize();
-
     setvbuf(stdout, NULL, _IONBF, 0);
     atexit(onExit);
     signal(SIGINT, onSigInt);
 
     enableRawMode();
     printf("\033[?25l");
+    setupViewport();
+}
 
+void setupViewport(void)
+{
+    TERM_SIZE = getTerminalSize();
     if (COL_ENABLED)
     {
         BASE_ROW = 2;

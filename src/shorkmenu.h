@@ -16,6 +16,7 @@
 #define SHORKMENU
 
 #include <dirent.h>
+#include <linux/limits.h>
 
 
 
@@ -32,9 +33,9 @@ typedef enum
 
 typedef struct 
 {
-    char *id;
+    char id[128];
     char name[128];
-    char payload[1024];
+    char payload[PATH_MAX];
     void (*action)(void);
     int visible;
 } MenuItem;
@@ -74,6 +75,7 @@ void printMenu(MenuItem*, int, int, int, int, int, int, int, int);
 void printScrollingText(char*, int, int);
 int rowsInCol(int, int, int);
 void setupMenuSys(void);
+void setupViewport(void);
 void showCursor(void);
 void showDialog(char*, int);
 
